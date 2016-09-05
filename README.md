@@ -1,3 +1,3 @@
-# minio-client
+# minio-hs
 
-add description of minio-client here
+add description of minio-hs here
