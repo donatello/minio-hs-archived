@@ -9,12 +9,14 @@ module Network.Minio.Data
   , Location
   , BucketInfo(..)
   , getPathFromRI
+  , getRegionFromRI
   , Minio
   , MinioErr(..)
   , runMinio
   , defaultConnectInfo
   , connect
   , Payload(..)
+  , s3Name
   ) where
 
 import qualified Data.ByteString as B
@@ -27,6 +29,8 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Trans.Resource (MonadThrow, MonadResource, ResourceT, ResIO)
 import Control.Monad.Base (MonadBase(..))
 
+import Text.XML
+
 import           Lib.Prelude
 
 data ConnectInfo = ConnectInfo {
@@ -35,12 +39,11 @@ data ConnectInfo = ConnectInfo {
   , connectAccessKey :: Text
   , connectSecretKey :: Text
   , connectIsSecure :: Bool
-  , connectRegion :: Text
   } deriving (Eq, Show)
 
 defaultConnectInfo :: ConnectInfo
 defaultConnectInfo =
-  ConnectInfo "localhost" 9000 "minio" "minio123" False "us-east-1"
+  ConnectInfo "localhost" 9000 "minio" "minio123" False
 
 type Bucket = Text
 type Object = Text
@@ -65,6 +68,7 @@ data RequestInfo = RequestInfo {
   , headers :: [Header]
   , payload :: Payload
   , payloadHash :: ByteString
+  , region :: Maybe Location
   }
 
 
@@ -73,6 +77,9 @@ getPathFromRI ri = B.concat $ parts
   where
     objPart = maybe [] (\o -> ["/", encodeUtf8 o]) $ object ri
     parts = maybe ["/"] (\b -> "/" : encodeUtf8 b : objPart) $ bucket ri
+
+getRegionFromRI :: RequestInfo -> Text
+getRegionFromRI ri = maybe "us-east-1" identity (region ri)
 
 data MinioErr = MErrMsg ByteString
               | MErrHttp HttpException
@@ -107,3 +114,6 @@ connect ci = do
 
 runMinio :: MinioConn -> Minio a -> ResourceT IO (Either MinioErr a)
 runMinio conn = runExceptT . flip runReaderT conn . unMinio
+
+s3Name :: Text -> Name
+s3Name s = Name s (Just "http://s3.amazonaws.com/doc/2006-03-01/") Nothing
